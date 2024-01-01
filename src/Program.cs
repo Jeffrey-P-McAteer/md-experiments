@@ -27,6 +27,13 @@ namespace ConsoleApplication {
         }
     }
 
+    // Passed to each update_code as the variable `f`
+    public class SimStepData {
+      public List<Data> tn_data;
+      public int current_data_i; // index into tn_data[i];
+
+    }
+
     public class Data {
       public int oid;
 
@@ -50,6 +57,7 @@ namespace ConsoleApplication {
 
       public string name;
       public string description;
+      public string update_code;
 
 
       public static List<Delta> all() {
