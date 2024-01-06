@@ -4,6 +4,7 @@ using System.IO;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace ConsoleApplication {
@@ -55,7 +56,12 @@ namespace ConsoleApplication {
       }
 
       public void save_img(string output_path) {
+        int w = 1024;
+        int h = 1024;
+        using(Image<Rgba32> image = new(w, h)) {
 
+          image.Save(output_path);
+        }
       }
     }
 
