@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis.CSharp.Scripting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
 
@@ -15,8 +16,8 @@ namespace ConsoleApplication {
         public static Font font;
         public static void Main() {
           var collection = new FontCollection();
-          //var family = collection.Add("Noto_Sans_vf.ttf");
-          var family = collection.Add("/j/proj/md-experiments/Noto_Sans_vf.ttf");
+          //var family = collection.Add("Arial.ttf");
+          var family = collection.Add("/j/proj/md-experiments/Arial.ttf");
           font = family.CreateFont(12, FontStyle.Regular);
 
           var t0_data = Data.all();
@@ -89,11 +90,28 @@ namespace ConsoleApplication {
             string name = d.G("name", "oid="+d.oid);
 
             int x_px = (int) (((x / unit_w) * px_w) + (px_w/2.0));
-            int y_px = (int) (((y / unit_h) * px_h) + (px_h/2.0));
+            int y_px = px_h - ((int) (((y / unit_h) * px_h) + (px_h/2.0)));
 
-            image[x_px, y_px] = Color.Black;
+            var color = Color.Black;
+            var d_color = d.G("color", "black");
+            if (d_color.Equals("black")) {
+              color = Color.Black;
+            }
+            else if (d_color.Equals("grey")) {
+              color = Color.Gray;
+            }
+            else if (d_color.Equals("red")) {
+              color = Color.Red;
+            }
+            else if (d_color.Equals("blue")) {
+              color = Color.Blue;
+            }
 
-            image.Mutate(x=> x.DrawText(name, Program.font, Color.Black, new PointF(x_px+4, y_px+2)));
+            var circle = new EllipsePolygon((float) x_px, (float) y_px, (float) 4.0);
+            image.Mutate(x=> {
+              x.Fill(color, circle);
+              x.DrawText(name, Program.font, Color.Black, new PointF(x_px+4, y_px+2));
+            });
 
           }
           image.Save(output_path);
@@ -170,13 +188,13 @@ namespace ConsoleApplication {
       public static List<Data> all() {
         return new List<Data>(){
           new Data(){ oid=1, attributes=new Dictionary<string, object>(){
-            {"x", 0.0}, {"y", 0.0}, {"name", "Bird A"}, {"status", "hungry"}, {"food", 5},
+            {"x", 0.0}, {"y", 0.0}, {"name", "Bird A"}, {"status", "hungry"}, {"food", 5}, {"color", "blue"},
           } },
           new Data(){ oid=2, attributes=new Dictionary<string, object>(){
-            {"x", 0.0}, {"y", 1.0}, {"name", "Bird B"}, {"status", "hungry"}, {"food", 15},
+            {"x", 0.0}, {"y", 1.0}, {"name", "Bird B"}, {"status", "hungry"}, {"food", 15}, {"color", "red"},
           } },
           new Data(){ oid=3, attributes=new Dictionary<string, object>(){
-            {"x", 1.2}, {"y", 1.2}, {"name", "Bird Feeder"}, {"status", "na"}, {"food", 500},
+            {"x", 1.2}, {"y", 1.2}, {"name", "Bird Feeder"}, {"status", "na"}, {"food", 500}, {"color", "gray"},
           } },
         };
       }
