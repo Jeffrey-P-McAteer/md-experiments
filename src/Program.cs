@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -16,13 +17,30 @@ namespace ConsoleApplication {
           var deltas = Delta.all();
           var conditions = Condition.all();
 
-          var t0 = DateTime.Now.AddDays(-10);
+          int num_days = 10;
+          var t0 = DateTime.Now.AddDays(-1 * num_days);
           var tf = DateTime.Now;
+
+          var sim = new SimStepData(){
+            tn_data = tn_data,
+            current_data_i = 0,
+          };
+
+          string render_dir = "bin/renders";
+          if (!Directory.Exists(render_dir)) {
+            Directory.CreateDirectory(render_dir);
+          }
+
+          for (int day_num = 0; day_num < num_days; day_num += 1) {
+            sim.move_forward(new TimeSpan(1, 0, 0, 0)); // 1 day, 0 h, 0 m, 0 s
+            sim.save_img($"{render_dir}/{day_num}.png");
+          }
 
 
 
           var result = CSharpScript.EvaluateAsync("1 + 3").Result;
           Console.WriteLine("Hello World! result = "+result);
+
 
         }
     }
@@ -32,23 +50,33 @@ namespace ConsoleApplication {
       public List<Data> tn_data;
       public int current_data_i; // index into tn_data[i];
 
+      public void move_forward(TimeSpan duration_to_move) {
+
+      }
+
+      public void save_img(string output_path) {
+
+      }
     }
 
     public class Data {
       public int oid;
 
-      public double x;
-      public double y;
+      public Dictionary<string, object> attributes;
 
-      public string name;
-      public string color;
-      public string status;
+      public T G<T>(string name, T def=default(T)) {
+        if (attributes.ContainsKey(name)) {
+          return (T) attributes[name];
+        }
+        return def;
+      }
+
 
       public static List<Data> all() {
         return new List<Data>(){
-          new Data(){oid=1, x=0.0, y=0.0, name="a", color="red", status=""},
-          new Data(){oid=1, x=1.0, y=0.0, name="b", color="green", status=""},
-          new Data(){oid=1, x=1.5, y=0.5, name="b", color="red", status=""},
+          new Data(){ oid=1, attributes=new Dictionary<string, object>(){{"x", 0.0}, {"y", 0.0}, {"name", "a"}, } },
+          // new Data(){oid=1, x=1.0, y=0.0, name="b", color="green", status=""},
+          // new Data(){oid=1, x=1.5, y=0.5, name="b", color="red", status=""},
         };
       }
     }
@@ -57,6 +85,10 @@ namespace ConsoleApplication {
 
       public string name;
       public string description;
+
+      public int t0_oid;
+      public string attr_name;
+
       public string update_code;
 
 
