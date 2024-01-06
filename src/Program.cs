@@ -47,10 +47,6 @@ namespace ConsoleApplication {
             sim.save_img($"{render_dir}/{hour_num}.png");
           }
 
-          var result = CSharpScript.EvaluateAsync("1 + 3").Result;
-          Console.WriteLine("Hello World! result = "+result);
-
-
         }
     }
 
@@ -62,10 +58,13 @@ namespace ConsoleApplication {
       public int current_data_i; // index into tn_data[i];
 
       public void move_forward(TimeSpan duration_to_move) {
-        var prev_sim_flat_data = JsonSerializer.Deserialize<List<Data>>(JsonSerializer.Serialize(this.tn_data));
+        var prev_sim_flat_data = new List<Data>();
+        foreach (var d in tn_data) {
+          prev_sim_flat_data.Add(d.Clone());
+        }
         foreach (var delta in deltas) {
           for (int i=0; i<tn_data.Count; i+=1) {
-            delta.MaybeApply(tn_data[i]);
+            delta.MaybeApply(tn_data[i], prev_sim_flat_data, duration_to_move);
           }
         }
         foreach (var condition in conditions) {
@@ -184,6 +183,12 @@ namespace ConsoleApplication {
         }
       }
 
+      public Data Clone() {
+        return new Data() {
+          oid = this.oid,
+          attributes = new Dictionary<string, object>(this.attributes),
+        };
+      }
 
       public static List<Data> all() {
         return new List<Data>(){
@@ -200,6 +205,24 @@ namespace ConsoleApplication {
       }
     }
 
+    public class DeltaGlobals {
+      public Data row;
+      public List<Data> neighbors;
+      public TimeSpan duration_to_move;
+
+      public DeltaGlobals(Data row, List<Data> neighbors, TimeSpan duration_to_move) {
+        this.row = row;
+        this.neighbors = neighbors;
+        this.duration_to_move = duration_to_move;
+      }
+
+      // Single-letter Shortcuts
+      public Data r { get { return this.row; } }
+      public List<Data> n { get { return this.neighbors; } }
+      public TimeSpan t { get { return this.duration_to_move; } }
+
+    }
+
     public class Delta {
 
       public string name;
@@ -209,18 +232,27 @@ namespace ConsoleApplication {
 
       public string update_code;
 
-      public void MaybeApply(Data r) {
+      public void MaybeApply(Data r, List<Data> neighbors, TimeSpan duration_to_move) {
         if (t0_oid >= 0) {
           if (r.oid == t0_oid) {
-            this.Apply(r);
+            this.Apply(r, neighbors, duration_to_move);
           }
         }
         else { // t0_oid is -1, indicating it's applicable to all rows
-          this.Apply(r);
+          this.Apply(r, neighbors, duration_to_move);
         }
       }
 
-      public void Apply(Data r) {
+      public void Apply(Data r, List<Data> neighbors, TimeSpan duration_to_move) {
+        var globals = new DeltaGlobals(r, neighbors, duration_to_move);
+
+        /* // For debugging
+        Console.WriteLine("DELTA> "+this.update_code);
+        Console.WriteLine("     > r.attributes = "+JsonSerializer.Serialize(r.attributes, new JsonSerializerOptions { IncludeFields = true }));
+        Console.WriteLine("     > neighbors = "+JsonSerializer.Serialize(neighbors, new JsonSerializerOptions { IncludeFields = true }));
+        /* */
+
+        var result = CSharpScript.EvaluateAsync(this.update_code, globals: globals).Result;
 
       }
 
@@ -229,7 +261,7 @@ namespace ConsoleApplication {
           new Delta(){
             name="Bird A moves toward food!",
             description="Bird A moves towards food at a speed of 0.2 units/hour.",
-            t0_oid=0,
+            t0_oid=1,
             update_code="r.MoveTowards(neighbors, \"Bird Feeder\", t, 0.2)",
           }
 
