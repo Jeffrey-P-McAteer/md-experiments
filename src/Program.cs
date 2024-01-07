@@ -9,6 +9,8 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.ImageSharp.Metadata;
+using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.Fonts;
 
 namespace ConsoleApplication {
@@ -26,9 +28,18 @@ namespace ConsoleApplication {
           var deltas = Delta.all();
           var conditions = Condition.all();
 
-          int num_hours = 10;
-          var t0 = DateTime.Now.AddHours(-1 * num_hours);
-          var tf = DateTime.Now;
+
+          // TimeSpan sim_increment_amount = new TimeSpan(0, 1, 0, 0); // Simulate 1 hour at a time
+          TimeSpan sim_increment_amount = new TimeSpan(0, 0, 15, 0); // Simulate 15min at a time
+          //int num_hours = 10;
+          //var t0 = DateTime.Now.AddHours(-1 * num_hours);
+          //var tf = DateTime.Now;
+          int num_hours = 16;
+          int num_sim_steps = 0;
+          while ((sim_increment_amount * num_sim_steps).TotalHours < num_hours) {
+            num_sim_steps += 1;
+          }
+          Console.WriteLine($"Running {num_sim_steps} sim steps at {sim_increment_amount} each to sim {num_hours} hours total.");
 
           var sim = new SimStepData(){
             tn_data = tn_data,
@@ -42,10 +53,40 @@ namespace ConsoleApplication {
             Directory.CreateDirectory(render_dir);
           }
 
-          for (int hour_num = 0; hour_num < num_hours; hour_num += 1) {
-            sim.move_forward(new TimeSpan(0, 1, 0, 0)); // 0 day, 1 hour, 0 m, 0 s
-            sim.save_img($"{render_dir}/{hour_num}.png");
+          List<Image> all_imgs = new List<Image>();
+          for (int step_num = 0; step_num < num_sim_steps; step_num += 1) {
+            sim.move_forward(sim_increment_amount);
+            all_imgs.Add(
+              sim.save_img($"{render_dir}/{step_num}.png")
+            );
           }
+
+          // Also render a .gif w/ frames
+          int frameDelay = 10;
+          int px_w = 1024;
+          int px_h = 1024;
+          Image<Rgba32> gif = new(px_w, px_h, Color.White);
+
+          // Set animation loop repeat count to 5.
+          var gifMetaData = gif.Metadata.GetGifMetadata();
+          gifMetaData.RepeatCount = 5;
+
+          // Set the delay until the next image is displayed.
+          GifFrameMetadata metadata = gif.Frames.RootFrame.Metadata.GetGifMetadata();
+          metadata.FrameDelay = frameDelay;
+          foreach (var image in all_imgs) {
+
+              // Set the delay until the next image is displayed.
+              metadata = image.Frames.RootFrame.Metadata.GetGifMetadata();
+              metadata.FrameDelay = frameDelay;
+
+              // Add the color image to the gif.
+              gif.Frames.AddFrame(image.Frames.RootFrame);
+          }
+
+          // Save the final result.
+          gif.SaveAsGif($"{render_dir}/render.gif");
+
 
         }
     }
@@ -76,45 +117,49 @@ namespace ConsoleApplication {
         }
       }
 
-      public void save_img(string output_path) {
+      public Image<Rgba32> save_img(string output_path) {
         int px_w = 1024;
         int px_h = 1024;
         double unit_w = 5.0;
         double unit_h = 5.0;
-        using(Image<Rgba32> image = new(px_w, px_h)) {
-          // Paint dot + text on all items using x,y, and name attributes.
-          foreach (var d in tn_data) {
-            double x = d.G("x", 0.0);
-            double y = d.G("y", 0.0);
-            string name = d.G("name", "oid="+d.oid);
+        Image<Rgba32> image = new(px_w, px_h);
 
-            int x_px = (int) (((x / unit_w) * px_w) + (px_w/2.0));
-            int y_px = px_h - ((int) (((y / unit_h) * px_h) + (px_h/2.0)));
+        // White background for all frames
+        image.Mutate(x => x.Fill(Color.White, new Rectangle(0, 0, px_w, px_h)) );
 
-            var color = Color.Black;
-            var d_color = d.G("color", "black");
-            if (d_color.Equals("black")) {
-              color = Color.Black;
-            }
-            else if (d_color.Equals("grey")) {
-              color = Color.Gray;
-            }
-            else if (d_color.Equals("red")) {
-              color = Color.Red;
-            }
-            else if (d_color.Equals("blue")) {
-              color = Color.Blue;
-            }
+        // Paint dot + text on all items using x,y, and name attributes.
+        foreach (var d in tn_data) {
+          double x = d.G("x", 0.0);
+          double y = d.G("y", 0.0);
+          string name = d.G("name", "oid="+d.oid);
 
-            var circle = new EllipsePolygon((float) x_px, (float) y_px, (float) 4.0);
-            image.Mutate(x=> {
-              x.Fill(color, circle);
-              x.DrawText(name, Program.font, Color.Black, new PointF(x_px+4, y_px+2));
-            });
+          int x_px = (int) (((x / unit_w) * px_w) + (px_w/2.0));
+          int y_px = px_h - ((int) (((y / unit_h) * px_h) + (px_h/2.0)));
 
+          var color = Color.Black;
+          var d_color = d.G("color", "black");
+          if (d_color.Equals("black")) {
+            color = Color.Black;
           }
-          image.Save(output_path);
+          else if (d_color.Equals("grey")) {
+            color = Color.Gray;
+          }
+          else if (d_color.Equals("red")) {
+            color = Color.Red;
+          }
+          else if (d_color.Equals("blue")) {
+            color = Color.Blue;
+          }
+
+          var circle = new EllipsePolygon((float) x_px, (float) y_px, (float) 4.0);
+          image.Mutate(x=> {
+            x.Fill(color, circle);
+            x.DrawText(name, Program.font, Color.Black, new PointF(x_px+4, y_px+2));
+          });
+
         }
+        image.Save(output_path);
+        return image;
       }
     }
 
@@ -181,6 +226,55 @@ namespace ConsoleApplication {
           this.S("y", our_y + (units_moved*Math.Cos(radians_angle_to_target)) );
 
         }
+      }
+
+      public void MoveTowards(double target_x, double target_y, TimeSpan duration_to_move, double velocity_in_units_per_hour){
+
+        double our_x = this.G("x", 0.0);
+        double our_y = this.G("y", 0.0);
+
+        double units_moved = duration_to_move.TotalHours * velocity_in_units_per_hour;
+
+        double radians_angle_to_target = Math.Atan2(
+          target_x - our_x,
+          target_y - our_y
+        );
+
+        this.S("x", our_x + (units_moved*Math.Sin(radians_angle_to_target)) );
+        this.S("y", our_y + (units_moved*Math.Cos(radians_angle_to_target)) );
+
+      }
+
+      public void MoveAway(List<Data> prev_sim_data, string target_name, TimeSpan duration_to_move, double velocity_in_units_per_hour) {
+        this.MoveTowards(prev_sim_data, target_name, duration_to_move, -1.0 * velocity_in_units_per_hour);
+      }
+
+      public double UnitDistTo(List<Data> prev_sim_data, string target_name) {
+        double dist = double.PositiveInfinity;
+
+        double our_x = this.G("x", 0.0);
+        double our_y = this.G("y", 0.0);
+
+        Data? maybe_target = null;
+        foreach (var d in prev_sim_data) {
+          if (d.G("name", "").Equals(target_name)) {
+            maybe_target = d;
+            break;
+          }
+        }
+        if (maybe_target is Data target) {
+          double target_x = target.G("x", 0.0);
+          double target_y = target.G("y", 0.0);
+
+          dist = Math.Sqrt(
+            Math.Pow(our_x - target_x, 2.0) +
+            Math.Pow(our_y - target_y, 2.0)
+          );
+
+        }
+
+
+        return dist;
       }
 
       public Data Clone() {
@@ -263,7 +357,19 @@ namespace ConsoleApplication {
             description="Bird A moves towards food at a speed of 0.2 units/hour.",
             t0_oid=1,
             update_code="r.MoveTowards(neighbors, \"Bird Feeder\", t, 0.2)",
-          }
+          },
+          new Delta(){
+            name="Bird B moves toward unknown location!",
+            description="Bird B moves towards x=1.0,y=0.0 at a speed of 0.2 units/hour.",
+            t0_oid=2,
+            update_code="r.MoveTowards(1.0, 0.0, t, 0.2)",
+          },
+          new Delta(){
+            name="Bird A moves away from bird B if within 0.4 units!",
+            description="Bird A moves away from bird B if within 0.4 units at a speed of 0.3 units/hour.",
+            t0_oid=1,
+            update_code="if (r.UnitDistTo(neighbors, \"Bird B\") < 0.4) { r.MoveAway(neighbors, \"Bird B\", t, 0.3); }",
+          },
 
         };
       }
