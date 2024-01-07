@@ -30,7 +30,7 @@ namespace ConsoleApplication {
 
 
           // TimeSpan sim_increment_amount = new TimeSpan(0, 1, 0, 0); // Simulate 1 hour at a time
-          TimeSpan sim_increment_amount = new TimeSpan(0, 0, 15, 0); // Simulate 15min at a time
+          TimeSpan sim_increment_amount = new TimeSpan(0, 0, 5, 0); // Simulate 15min at a time
           //int num_hours = 10;
           //var t0 = DateTime.Now.AddHours(-1 * num_hours);
           //var tf = DateTime.Now;
@@ -98,6 +98,8 @@ namespace ConsoleApplication {
       public List<Condition> conditions;
       public int current_data_i; // index into tn_data[i];
 
+      public TimeSpan total_time_simulated = new TimeSpan(0, 0, 0, 0); // 0 days, 0h, 0m ,0s
+
       public void move_forward(TimeSpan duration_to_move) {
         var prev_sim_flat_data = new List<Data>();
         foreach (var d in tn_data) {
@@ -115,6 +117,7 @@ namespace ConsoleApplication {
             }
           }
         }
+        total_time_simulated += duration_to_move;
       }
 
       public Image<Rgba32> save_img(string output_path) {
@@ -158,6 +161,13 @@ namespace ConsoleApplication {
           });
 
         }
+
+        // Finally stick the timestamp string at lower-left corner
+        string ts = ""+total_time_simulated;
+        image.Mutate(x=> {
+          x.DrawText(ts, Program.font, Color.Black, new PointF(40, px_h-40));
+        });
+
         image.Save(output_path);
         return image;
       }
