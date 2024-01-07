@@ -34,7 +34,7 @@ namespace ConsoleApplication {
           //int num_hours = 10;
           //var t0 = DateTime.Now.AddHours(-1 * num_hours);
           //var tf = DateTime.Now;
-          int num_hours = 16;
+          int num_hours = 24;
           int num_sim_steps = 0;
           while ((sim_increment_amount * num_sim_steps).TotalHours < num_hours) {
             num_sim_steps += 1;
@@ -366,9 +366,9 @@ namespace ConsoleApplication {
           },
           new Delta(){
             name="Bird A moves away from bird B if within 0.4 units!",
-            description="Bird A moves away from bird B if within 0.4 units at a speed of 0.3 units/hour.",
+            description="Bird A moves away from bird B if within 0.4 units at a speed of 0.35 units/hour.",
             t0_oid=1,
-            update_code="if (r.UnitDistTo(neighbors, \"Bird B\") < 0.4) { r.MoveAway(neighbors, \"Bird B\", t, 0.3); }",
+            update_code="if (r.UnitDistTo(neighbors, \"Bird B\") < 0.4) { r.MoveAway(neighbors, \"Bird B\", t, 0.35); }",
           },
 
         };
