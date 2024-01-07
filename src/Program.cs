@@ -354,9 +354,9 @@ namespace ConsoleApplication {
         return new List<Delta>(){
           new Delta(){
             name="Bird A moves toward food!",
-            description="Bird A moves towards food at a speed of 0.2 units/hour.",
+            description="Bird A moves towards food at a speed of 0.25 units/hour.",
             t0_oid=1,
-            update_code="r.MoveTowards(neighbors, \"Bird Feeder\", t, 0.2)",
+            update_code="r.MoveTowards(neighbors, \"Bird Feeder\", t, 0.25)",
           },
           new Delta(){
             name="Bird B moves toward unknown location!",
@@ -366,9 +366,9 @@ namespace ConsoleApplication {
           },
           new Delta(){
             name="Bird A moves away from bird B if within 0.4 units!",
-            description="Bird A moves away from bird B if within 0.4 units at a speed of 0.35 units/hour.",
+            description="Bird A moves away from bird B if within 0.4 units at a speed of 0.45 units/hour.",
             t0_oid=1,
-            update_code="if (r.UnitDistTo(neighbors, \"Bird B\") < 0.4) { r.MoveAway(neighbors, \"Bird B\", t, 0.35); }",
+            update_code="if (r.UnitDistTo(neighbors, \"Bird B\") < 0.4) { r.MoveAway(neighbors, \"Bird B\", t, 0.45); }",
           },
 
         };
