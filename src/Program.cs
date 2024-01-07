@@ -162,6 +162,17 @@ namespace ConsoleApplication {
 
         }
 
+        // May as well stick all the rules in upper-left corner
+        int delta_num = 0;
+        int px_per_line = 20;
+        foreach (var delta in this.deltas) {
+          image.Mutate(x=> {
+            x.DrawText(delta.description, Program.font, Color.Black, new PointF(40, 40 + (delta_num*px_per_line) ));
+          });
+          delta_num += 1;
+        }
+
+
         // Finally stick the timestamp string at lower-left corner
         string ts = ""+total_time_simulated;
         image.Mutate(x=> {
