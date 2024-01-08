@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 
 using Microsoft.CodeAnalysis.CSharp.Scripting;
@@ -16,16 +17,16 @@ using SixLabors.Fonts;
 namespace ConsoleApplication {
     public class Program {
         public static Font font;
-        public static void Main() {
+        public static void Main(string[] args) {
           var collection = new FontCollection();
           //var family = collection.Add("Arial.ttf");
           var family = collection.Add("/j/proj/md-experiments/Arial.ttf");
           font = family.CreateFont(12, FontStyle.Regular);
 
-          var t0_data = Data.all();
-          var tn_data = Data.all();
+          var tn_data = args.Length > 1? Data.read_from(args[1]) : Data.all();
 
-          var deltas = Delta.all();
+          var deltas = args.Length > 2? Delta.read_from(args[2]) : Delta.all();
+
           var conditions = Condition.all();
 
 
@@ -88,6 +89,21 @@ namespace ConsoleApplication {
           gif.SaveAsGif($"{render_dir}/render.gif");
 
 
+        }
+
+
+
+        public static object ParseToSimplest(string val) {
+          if (double.TryParse(val.Strip(), out parsed)) {
+            return parsed;
+          }
+          if (int.TryParse(val.Strip(), out parsed)) {
+            return parsed;
+          }
+          if (long.TryParse(val.Strip(), out parsed)) {
+            return parsed;
+          }
+          return val;
         }
     }
 
@@ -318,6 +334,48 @@ namespace ConsoleApplication {
           } },
         };
       }
+
+      public static List<Data> read_from(string csv_file) {
+        List<Data> all = new List<Data>();
+
+        string[] column_names = new string[8];
+        int oid_column = 0;
+
+        int line_num = 0;
+        using (var fileStream = File.OpenRead(csv_file)) {
+          using (var streamReader = new StreamReader(fileStream, Encoding.UTF8, true, 4096)) {
+            string line;
+            while ((line = streamReader.ReadLine()) != null) {
+              if (line_num == 0) {
+                column_names = line.Split(',');
+                for (int i=0; i<column_names.Count; i+=1) {
+                  column_names[i] = column_names[i].Trim();
+                  if (column_names[i].Equals("oid", StringComparison.InvariantCultureIgnoreCase)) {
+                    oid_column = i;
+                  }
+                }
+              }
+              else {
+                string[] str_values = line.Split(',');
+                object[] parsed_vals = new object[str_values.Length];
+                for (int i=0; i<parsed_vals.Length; i+=1) {
+                  parsed_vals[i] = ParseToSimplest(str_values[i]);
+                }
+
+                for (int i=0; i<Math.Min(column_names.Count, parsed_vals.Length); i+=1) {
+
+                }
+
+
+              }
+              line_num += 1;
+            }
+          }
+        }
+
+        return data;
+      }
+
     }
 
     public class DeltaGlobals {
@@ -394,6 +452,48 @@ namespace ConsoleApplication {
 
         };
       }
+
+      public static List<Delta> read_from(string csv_file) {
+        var all = new List<Delta>();
+        string[] column_names = new string[8];
+        int oid_column = 0;
+
+        int line_num = 0;
+        using (var fileStream = File.OpenRead(csv_file)) {
+          using (var streamReader = new StreamReader(fileStream, Encoding.UTF8, true, 4096)) {
+            string line;
+            while ((line = streamReader.ReadLine()) != null) {
+              if (line_num == 0) {
+                column_names = line.Split(',');
+                for (int i=0; i<column_names.Count; i+=1) {
+                  column_names[i] = column_names[i].Trim();
+                  if (column_names[i].Equals("oid", StringComparison.InvariantCultureIgnoreCase)) {
+                    oid_column = i;
+                  }
+                }
+              }
+              else {
+                string[] str_values = line.Split(',');
+                object[] parsed_vals = new object[str_values.Length];
+                for (int i=0; i<parsed_vals.Length; i+=1) {
+                  parsed_vals[i] = ParseToSimplest(str_values[i]);
+                }
+
+                for (int i=0; i<Math.Min(column_names.Count, parsed_vals.Length); i+=1) {
+
+                }
+
+
+              }
+              line_num += 1;
+            }
+          }
+        }
+
+        return all;
+      }
+
+
     }
     public class Condition {
 

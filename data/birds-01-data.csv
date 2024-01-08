@@ -1,0 +1,4 @@
+oid,x,y,name,status,color
+1,0.0,0.0,Bird A,hungry,blue
+2,0.0,1.0,Bird B,hungry,red
+3,1.25,1.25,Bird Feeder,na,gray
