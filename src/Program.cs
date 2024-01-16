@@ -109,6 +109,8 @@ namespace ConsoleApplication {
 
 
     public class SimStepData {
+      public static SimStepData Inst = null;
+
       public List<Data> tn_data;
       public List<Delta> deltas;
       public List<Condition> conditions;
@@ -126,17 +128,22 @@ namespace ConsoleApplication {
 
       public void move_forward(TimeSpan duration_to_move) {
         // Setup sim frame data
+        SimStepData.Inst = this;
         this.prev_sim_flat_data = new List<Data>();
         this.f = new List<Data>();
         foreach (var d in tn_data) {
           var d_c = d.Clone();
           prev_sim_flat_data.Add(d_c);
-          while (!(f.Count > d_c.oid)) {
+
+          // Now we add a _reference_ to d to f[] in the index spot equations will expect
+          // d itself will live on in this.tn_data
+          while (!(f.Count > d.oid)) {
             f.Add(new Data(){oid=-1, attributes=new Dictionary<string, object>()});
           }
-          if (f.Count > d_c.oid) {
-            f[d_c.oid] = d_c;
+          if (f.Count > d.oid) {
+            f[d_c.oid] = d;
           }
+
         }
         this.t = duration_to_move;
 
@@ -246,6 +253,10 @@ namespace ConsoleApplication {
         this.S("y", this.G("y", 0.0) + y_delta);
       }
 
+      public void MoveTowards(string target_name, TimeSpan duration_to_move, double velocity_in_units_per_hour){
+        this.MoveTowards(SimStepData.Inst.prev_sim_flat_data, target_name, duration_to_move, velocity_in_units_per_hour);
+      }
+
       public void MoveTowards(List<Data> prev_sim_data, string target_name, TimeSpan duration_to_move, double velocity_in_units_per_hour){
         int oid_target = -1;
         foreach (var d in prev_sim_data) {
@@ -303,8 +314,16 @@ namespace ConsoleApplication {
 
       }
 
+      public void MoveAway(string target_name, TimeSpan duration_to_move, double velocity_in_units_per_hour) {
+        this.MoveAway(SimStepData.Inst.prev_sim_flat_data, target_name, duration_to_move, -1.0 * velocity_in_units_per_hour);
+      }
+
       public void MoveAway(List<Data> prev_sim_data, string target_name, TimeSpan duration_to_move, double velocity_in_units_per_hour) {
         this.MoveTowards(prev_sim_data, target_name, duration_to_move, -1.0 * velocity_in_units_per_hour);
+      }
+
+      public double UnitDistTo(string target_name) {
+        return this.UnitDistTo(SimStepData.Inst.prev_sim_flat_data, target_name);
       }
 
       public double UnitDistTo(List<Data> prev_sim_data, string target_name) {
