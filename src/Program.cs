@@ -29,8 +29,9 @@ namespace ConsoleApplication {
 
           var deltas = args.Length > 2? Delta.read_from(args[2]) : Delta.all();
 
-          var conditions = Condition.all();
+          var conditions = Condition.all(); // todo csv support & impl
 
+          var parameters = Parameter.all(); // todo csv support
 
           // TimeSpan sim_increment_amount = new TimeSpan(0, 1, 0, 0); // Simulate 1 hour at a time
           TimeSpan sim_increment_amount = new TimeSpan(0, 0, 5, 0); // Simulate 15min at a time
@@ -42,7 +43,7 @@ namespace ConsoleApplication {
           while ((sim_increment_amount * num_sim_steps).TotalHours < num_hours) {
             num_sim_steps += 1;
           }
-          Console.WriteLine($"Running {num_sim_steps} sim steps at {sim_increment_amount} each to sim {num_hours} hours total.");
+          Console.WriteLine($"Running {parameters.Count} parameters, each of which will run {num_sim_steps} sim steps at {sim_increment_amount} each to sim {num_hours} hours total per parameter step. ({parameters.Count*num_sim_steps} steps total)");
 
           var sim = new SimStepData(){
             tn_data = tn_data,
@@ -51,45 +52,7 @@ namespace ConsoleApplication {
             conditions = conditions,
           };
 
-          string render_dir = "bin/renders";
-          if (!Directory.Exists(render_dir)) {
-            Directory.CreateDirectory(render_dir);
-          }
-
-          List<Image> all_imgs = new List<Image>();
-          for (int step_num = 0; step_num < num_sim_steps; step_num += 1) {
-            sim.move_forward(sim_increment_amount);
-            all_imgs.Add(
-              sim.save_img($"{render_dir}/{step_num}.png")
-            );
-          }
-
-          // Also render a .gif w/ frames
-          int frameDelay = 10;
-          int px_w = 1024;
-          int px_h = 1024;
-          Image<Rgba32> gif = new(px_w, px_h, Color.White);
-
-          // Set animation loop repeat count to 5.
-          var gifMetaData = gif.Metadata.GetGifMetadata();
-          gifMetaData.RepeatCount = 5;
-
-          // Set the delay until the next image is displayed.
-          GifFrameMetadata metadata = gif.Frames.RootFrame.Metadata.GetGifMetadata();
-          metadata.FrameDelay = frameDelay;
-          foreach (var image in all_imgs) {
-
-              // Set the delay until the next image is displayed.
-              metadata = image.Frames.RootFrame.Metadata.GetGifMetadata();
-              metadata.FrameDelay = frameDelay;
-
-              // Add the color image to the gif.
-              gif.Frames.AddFrame(image.Frames.RootFrame);
-          }
-
-          // Save the final result.
-          gif.SaveAsGif($"{render_dir}/render.gif");
-
+          sim.run_all("bin/renders", sim_increment_amount, parameters);
 
         }
 
@@ -127,6 +90,103 @@ namespace ConsoleApplication {
       public List<Data> f = new List<Data>();
       // Holds the _current_step_ time delta
       public TimeSpan t = new TimeSpan(0, 0, 0, 0);
+
+      // Holds parameter named values for this simulation
+      public Dictionary<string, double> p = new Dictionary<string, double>();
+
+      public void run_all(string render_dir, TimeSpan sim_increment_amount, List<Parameter> parameters_to_test) {
+        if (parameters_to_test.Count < 1) {
+          // Throw in a dummy & recurse, I'm not handling this "specially"
+          parameters_to_test.Add(new Parameter(){
+            description = "No Parameters"
+            name = "No-Parameters",
+            smallest_val = 1.0,
+            step_size = 1.0,
+            largest_val = 0.0,
+          });
+          run_all(render_dir, sim_increment_amount, parameters_to_test);
+          return;
+        }
+
+        if (!Directory.Exists(render_dir)) {
+          Directory.CreateDirectory(render_dir);
+        }
+
+        // First, generate _all_ parameter value combos.
+        List<Dictionary<string, double>> parameter_dicts = gen_all_combos(new List<Parameter>(parameters_to_test));
+
+        int parameter_i = 0;
+        foreach (var parameter_d in parameter_dicts) {
+          string parameter_render_dir = $"{render_dir}/{parameter_i}";
+          if (!Directory.Exists(parameter_render_dir)) {
+            Directory.CreateDirectory(parameter_render_dir);
+          }
+
+          List<Image> all_imgs = new List<Image>();
+          for (int step_num = 0; step_num < num_sim_steps; step_num += 1) {
+            this.move_forward(sim_increment_amount);
+            all_imgs.Add(
+              sim.save_img($"{parameter_render_dir}/{step_num}.png")
+            );
+          }
+
+          // Also render a .gif w/ frames
+          int frameDelay = 10;
+          int px_w = 1024;
+          int px_h = 1024;
+          Image<Rgba32> gif = new(px_w, px_h, Color.White);
+
+          // Set animation loop repeat count to 5.
+          var gifMetaData = gif.Metadata.GetGifMetadata();
+          gifMetaData.RepeatCount = 5;
+
+          // Set the delay until the next image is displayed.
+          GifFrameMetadata metadata = gif.Frames.RootFrame.Metadata.GetGifMetadata();
+          metadata.FrameDelay = frameDelay;
+          foreach (var image in all_imgs) {
+
+              // Set the delay until the next image is displayed.
+              metadata = image.Frames.RootFrame.Metadata.GetGifMetadata();
+              metadata.FrameDelay = frameDelay;
+
+              // Add the color image to the gif.
+              gif.Frames.AddFrame(image.Frames.RootFrame);
+          }
+
+          // Save the final result.
+          gif.SaveAsGif($"{parameter_render_dir}/render.gif");
+        }
+
+        // todo join all parameters? html?
+
+      }
+
+      private static List<Dictionary<string, double>> gen_all_combos(List<Parameter> parameters, int current_incrementing_parameter_i) {
+        string[] parameter_names = new string[parameters.Count];
+        double[][] parameter_val_matrix = new double[parameters.Count][];
+        int i=0;
+        foreach (var p in parameters) {
+          parameter_names[i] = p.name;
+          parameter_val_matrix[i] = p.ValuesArray();
+          i += 1;
+        }
+        return gen_all_combos(parameter_names, parameter_val_matrix, 0, new List<Dictionary<string, double>>() );
+      }
+
+      private static List<Dictionary<string, double>> gen_all_combos(string[] parameter_names, double[][] parameter_val_matrix, int current_incrementing_parameter_i, List<Dictionary<string, double>> prev_step) {
+        if (current_incrementing_parameter_i > parameter_val_matrix.Length) {
+          return prev_step;
+        }
+
+        string parameter_name = parameter_names[current_incrementing_parameter_i];
+        for (int val_i = 0; val_i < parameter_val_matrix[current_incrementing_parameter_i].Length; val_i += 1) {
+          double val = parameter_val_matrix[current_incrementing_parameter_i][val_i];
+
+        }
+
+
+      }
+
 
       public void move_forward(TimeSpan duration_to_move) {
         // Setup sim frame data
@@ -518,6 +578,98 @@ namespace ConsoleApplication {
 
 
     }
+
+
+    public class Parameter {
+
+      public string description;
+
+      public string name;
+
+      public double smallest_val;
+      public double step_size;
+      public double largest_val;
+
+      public IEnumerable<double> Values() {
+        for (double current_val = this.smallest_val; current_val < this.largest_val; current_val += this.step_size) {
+          yield return current_val;
+        }
+        yield return this.largest_val;
+      }
+
+      public double[] ValuesArray() {
+        List<double> vals = new List<double>();
+        for (double current_val = this.smallest_val; current_val < this.largest_val; current_val += this.step_size) {
+          vals.Add(current_val);
+        }
+        vals.Add(this.largest_val);
+        return vals.ToArray();
+      }
+
+      public static List<Parameter> all() {
+        return new List<Parameter>(){
+          new Parameter(){
+            description="Bird A moves away from bird B Velocity value in units/t.",
+            name="Bird_A_Avoid_Velocity",
+            smallest_val=0.25
+            step_size=0.10,
+            largest_val=0.65,
+          },
+        };
+      }
+
+      public static List<Delta> read_from(string csv_file) {
+        var all = new List<Delta>();
+        string[] column_names = new string[8];
+        int description_column = 0;
+        int code_column = 0;
+
+        int line_num = 0;
+        using (var fileStream = File.OpenRead(csv_file)) {
+          using (var streamReader = new StreamReader(fileStream, Encoding.UTF8, true, 4096)) {
+            string line;
+            while ((line = streamReader.ReadLine()) != null) {
+              if (line_num == 0) {
+                column_names = line.Split(',');
+                for (int i=0; i<column_names.Length; i+=1) {
+                  column_names[i] = column_names[i].Trim();
+                  if (column_names[i].Equals("description", StringComparison.InvariantCultureIgnoreCase)) {
+                    description_column = i;
+                  }
+                  if (column_names[i].Equals("code", StringComparison.InvariantCultureIgnoreCase)) {
+                    code_column = i;
+                  }
+                }
+              }
+              else {
+                string[] str_values = line.Split(',');
+                object[] parsed_vals = new object[str_values.Length];
+                for (int i=0; i<parsed_vals.Length; i+=1) {
+                  parsed_vals[i] = Program.ParseToSimplest(str_values[i]);
+                }
+                if (parsed_vals.Length < 2) {
+                  continue;
+                }
+
+                all.Add(new Delta(){
+                  description=""+parsed_vals[description_column],
+                  update_code=""+parsed_vals[code_column]
+                });
+
+
+              }
+              line_num += 1;
+            }
+          }
+        }
+
+        return all;
+      }
+
+
+    }
+
+
     public class Condition {
 
       public bool Exists(SimStepData sim_step) {
