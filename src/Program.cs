@@ -317,7 +317,7 @@ namespace ConsoleApplication {
       }
 
       public void MoveAway(string target_name, TimeSpan duration_to_move, double velocity_in_units_per_hour) {
-        this.MoveAway(SimStepData.Inst.prev_sim_flat_data, target_name, duration_to_move, -1.0 * velocity_in_units_per_hour);
+        this.MoveAway(SimStepData.Inst.prev_sim_flat_data, target_name, duration_to_move, velocity_in_units_per_hour);
       }
 
       public void MoveAway(List<Data> prev_sim_data, string target_name, TimeSpan duration_to_move, double velocity_in_units_per_hour) {
