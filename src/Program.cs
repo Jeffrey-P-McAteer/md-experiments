@@ -119,21 +119,41 @@ namespace ConsoleApplication {
       // Designed to be used in delta equations!
       public List<Data> prev_sim_flat_data = new List<Data>();
 
+      // Holds items where indexes == OIDs; a non-existing element will have a dummy Data item w/ oid == -1 inserted and no attributes.
+      public List<Data> f = new List<Data>();
+      // Holds the _current_step_ time delta
+      public TimeSpan t = new TimeSpan(0, 0, 0, 0);
+
       public void move_forward(TimeSpan duration_to_move) {
+        // Setup sim frame data
         this.prev_sim_flat_data = new List<Data>();
+        this.f = new List<Data>();
         foreach (var d in tn_data) {
-          prev_sim_flat_data.Add(d.Clone());
+          var d_c = d.Clone();
+          prev_sim_flat_data.Add(d_c);
+          while (!(f.Count > d_c.oid)) {
+            f.Add(new Data(){oid=-1, attributes=new Dictionary<string, object>()});
+          }
+          if (f.Count > d_c.oid) {
+            f[d_c.oid] = d_c;
+          }
         }
+        this.t = duration_to_move;
+
+        // Run all deltas
         foreach (var delta in deltas) {
           for (int i=0; i<tn_data.Count; i+=1) {
             delta.Apply(this, duration_to_move);
           }
         }
+
+        // Check conditions
         foreach (var condition in conditions) {
           if (condition.Exists(this)) {
             Console.WriteLine("condition "+condition+" has occured!");
           }
         }
+
         total_time_simulated += duration_to_move;
       }
 
