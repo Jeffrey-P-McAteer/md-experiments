@@ -1,0 +1,5 @@
+description,code
+Bird A moves towards food at a speed of 0.25 units/hour.,f[1].MoveTowards("Bird Feeder", t, 0.25)
+Bird B moves towards x=1.0,y=0.0 at a speed of 0.2 units/hour,f[2].MoveTowards(1.0, 0.0, t, 0.2)
+Bird A moves away from bird B if within 0.4 units at a speed of 0.45 units/hour.,if (f[1].UnitDistTo("Bird B") < 0.4) { f[1].MoveAway("Bird B", t, 0.45); }
+

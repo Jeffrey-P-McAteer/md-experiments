@@ -107,7 +107,7 @@ namespace ConsoleApplication {
         }
     }
 
-    // Passed to each update_code as the variable `f`
+
     public class SimStepData {
       public List<Data> tn_data;
       public List<Delta> deltas;
@@ -116,21 +116,22 @@ namespace ConsoleApplication {
 
       public TimeSpan total_time_simulated = new TimeSpan(0, 0, 0, 0); // 0 days, 0h, 0m ,0s
 
+      // Designed to be used in delta equations!
+      public List<Data> prev_sim_flat_data = new List<Data>();
+
       public void move_forward(TimeSpan duration_to_move) {
-        var prev_sim_flat_data = new List<Data>();
+        this.prev_sim_flat_data = new List<Data>();
         foreach (var d in tn_data) {
           prev_sim_flat_data.Add(d.Clone());
         }
         foreach (var delta in deltas) {
           for (int i=0; i<tn_data.Count; i+=1) {
-            delta.MaybeApply(tn_data[i], prev_sim_flat_data, duration_to_move);
+            delta.Apply(this, duration_to_move);
           }
         }
         foreach (var condition in conditions) {
-          for (int i=0; i<tn_data.Count; i+=1) {
-            if (condition.Exists(tn_data[i])) {
-              Console.WriteLine("condition "+condition+" has occured for "+tn_data[i].oid+"!");
-            }
+          if (condition.Exists(this)) {
+            Console.WriteLine("condition "+condition+" has occured!");
           }
         }
         total_time_simulated += duration_to_move;
@@ -361,10 +362,19 @@ namespace ConsoleApplication {
                 for (int i=0; i<parsed_vals.Length; i+=1) {
                   parsed_vals[i] = Program.ParseToSimplest(str_values[i]);
                 }
-
-                for (int i=0; i<Math.Min(column_names.Length, parsed_vals.Length); i+=1) {
-                  // TODO
+                if (parsed_vals.Length < 2) {
+                  continue;
                 }
+                int d_oid = Convert.ToInt32(parsed_vals[oid_column]);
+                var d_attributes = new Dictionary<string, object>();
+                for (int i=0; i<Math.Min(column_names.Length, parsed_vals.Length); i+=1) {
+                  d_attributes[column_names[i]] = parsed_vals[i];
+                }
+
+                all.Add(new Data(){
+                  oid=d_oid,
+                  attributes=d_attributes
+                });
 
 
               }
@@ -378,76 +388,34 @@ namespace ConsoleApplication {
 
     }
 
-    public class DeltaGlobals {
-      public Data row;
-      public List<Data> neighbors;
-      public TimeSpan duration_to_move;
-
-      public DeltaGlobals(Data row, List<Data> neighbors, TimeSpan duration_to_move) {
-        this.row = row;
-        this.neighbors = neighbors;
-        this.duration_to_move = duration_to_move;
-      }
-
-      // Single-letter Shortcuts
-      public Data r { get { return this.row; } }
-      public List<Data> n { get { return this.neighbors; } }
-      public TimeSpan t { get { return this.duration_to_move; } }
-
-    }
-
     public class Delta {
 
-      public string name;
       public string description;
-
-      public int t0_oid;
-
       public string update_code;
 
-      public void MaybeApply(Data r, List<Data> neighbors, TimeSpan duration_to_move) {
-        if (t0_oid >= 0) {
-          if (r.oid == t0_oid) {
-            this.Apply(r, neighbors, duration_to_move);
-          }
-        }
-        else { // t0_oid is -1, indicating it's applicable to all rows
-          this.Apply(r, neighbors, duration_to_move);
-        }
-      }
-
-      public void Apply(Data r, List<Data> neighbors, TimeSpan duration_to_move) {
-        var globals = new DeltaGlobals(r, neighbors, duration_to_move);
-
-        /* // For debugging
-        Console.WriteLine("DELTA> "+this.update_code);
-        Console.WriteLine("     > r.attributes = "+JsonSerializer.Serialize(r.attributes, new JsonSerializerOptions { IncludeFields = true }));
-        Console.WriteLine("     > neighbors = "+JsonSerializer.Serialize(neighbors, new JsonSerializerOptions { IncludeFields = true }));
-        /* */
-
-        var result = CSharpScript.EvaluateAsync(this.update_code, globals: globals).Result;
-
+      public void Apply(SimStepData sim_step, TimeSpan duration_to_move) {
+        var result = CSharpScript.EvaluateAsync(this.update_code, globals: sim_step).Result;
       }
 
       public static List<Delta> all() {
         return new List<Delta>(){
           new Delta(){
-            name="Bird A moves toward food!",
+            //name="Bird A moves toward food!",
             description="Bird A moves towards food at a speed of 0.25 units/hour.",
-            t0_oid=1,
-            update_code="r.MoveTowards(neighbors, \"Bird Feeder\", t, 0.25)",
+            //t0_oid=1,
+            update_code="f[1].MoveTowards(\"Bird Feeder\", t, 0.25)",
           },
           new Delta(){
-            name="Bird B moves toward unknown location!",
+            //name="Bird B moves toward unknown location!",
             description="Bird B moves towards x=1.0,y=0.0 at a speed of 0.2 units/hour.",
-            t0_oid=2,
-            update_code="r.MoveTowards(1.0, 0.0, t, 0.2)",
+            //t0_oid=2,
+            update_code="f[2].MoveTowards(1.0, 0.0, t, 0.2)",
           },
           new Delta(){
-            name="Bird A moves away from bird B if within 0.4 units!",
+            //name="Bird A moves away from bird B if within 0.4 units!",
             description="Bird A moves away from bird B if within 0.4 units at a speed of 0.45 units/hour.",
-            t0_oid=1,
-            update_code="if (r.UnitDistTo(neighbors, \"Bird B\") < 0.4) { r.MoveAway(neighbors, \"Bird B\", t, 0.45); }",
+            //t0_oid=1,
+            update_code="if (f[1].UnitDistTo(\"Bird B\") < 0.4) { f[1].MoveAway(\"Bird B\", t, 0.45); }",
           },
 
         };
@@ -456,7 +424,8 @@ namespace ConsoleApplication {
       public static List<Delta> read_from(string csv_file) {
         var all = new List<Delta>();
         string[] column_names = new string[8];
-        int oid_column = 0;
+        int description_column = 0;
+        int code_column = 0;
 
         int line_num = 0;
         using (var fileStream = File.OpenRead(csv_file)) {
@@ -467,8 +436,11 @@ namespace ConsoleApplication {
                 column_names = line.Split(',');
                 for (int i=0; i<column_names.Length; i+=1) {
                   column_names[i] = column_names[i].Trim();
-                  if (column_names[i].Equals("oid", StringComparison.InvariantCultureIgnoreCase)) {
-                    oid_column = i;
+                  if (column_names[i].Equals("description", StringComparison.InvariantCultureIgnoreCase)) {
+                    description_column = i;
+                  }
+                  if (column_names[i].Equals("code", StringComparison.InvariantCultureIgnoreCase)) {
+                    code_column = i;
                   }
                 }
               }
@@ -478,10 +450,14 @@ namespace ConsoleApplication {
                 for (int i=0; i<parsed_vals.Length; i+=1) {
                   parsed_vals[i] = Program.ParseToSimplest(str_values[i]);
                 }
-
-                for (int i=0; i<Math.Min(column_names.Length, parsed_vals.Length); i+=1) {
-
+                if (parsed_vals.Length < 2) {
+                  continue;
                 }
+
+                all.Add(new Delta(){
+                  description=""+parsed_vals[description_column],
+                  update_code=""+parsed_vals[code_column]
+                });
 
 
               }
@@ -497,16 +473,21 @@ namespace ConsoleApplication {
     }
     public class Condition {
 
-      public bool Exists(Data r) {
+      public bool Exists(SimStepData sim_step) {
         return false; // TODO test if this condition applies to r and if it does is it occuring?
       }
 
       public static List<Condition> all() {
         return new List<Condition>(){
 
-
         };
       }
+
+      public static List<Condition> read_from(string csv_file) {
+        var all = new List<Condition>();
+        return all;
+      }
+
     }
 }
 
