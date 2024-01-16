@@ -94,14 +94,14 @@ namespace ConsoleApplication {
 
 
         public static object ParseToSimplest(string val) {
-          if (double.TryParse(val.Strip(), out parsed)) {
-            return parsed;
+          if (double.TryParse(val.Trim(), out double parsed_d)) {
+            return parsed_d;
           }
-          if (int.TryParse(val.Strip(), out parsed)) {
-            return parsed;
+          if (int.TryParse(val.Trim(), out int parsed_i)) {
+            return parsed_i;
           }
-          if (long.TryParse(val.Strip(), out parsed)) {
-            return parsed;
+          if (long.TryParse(val.Trim(), out long parsed_l)) {
+            return parsed_l;
           }
           return val;
         }
@@ -348,7 +348,7 @@ namespace ConsoleApplication {
             while ((line = streamReader.ReadLine()) != null) {
               if (line_num == 0) {
                 column_names = line.Split(',');
-                for (int i=0; i<column_names.Count; i+=1) {
+                for (int i=0; i<column_names.Length; i+=1) {
                   column_names[i] = column_names[i].Trim();
                   if (column_names[i].Equals("oid", StringComparison.InvariantCultureIgnoreCase)) {
                     oid_column = i;
@@ -359,11 +359,11 @@ namespace ConsoleApplication {
                 string[] str_values = line.Split(',');
                 object[] parsed_vals = new object[str_values.Length];
                 for (int i=0; i<parsed_vals.Length; i+=1) {
-                  parsed_vals[i] = ParseToSimplest(str_values[i]);
+                  parsed_vals[i] = Program.ParseToSimplest(str_values[i]);
                 }
 
-                for (int i=0; i<Math.Min(column_names.Count, parsed_vals.Length); i+=1) {
-
+                for (int i=0; i<Math.Min(column_names.Length, parsed_vals.Length); i+=1) {
+                  // TODO
                 }
 
 
@@ -373,7 +373,7 @@ namespace ConsoleApplication {
           }
         }
 
-        return data;
+        return all;
       }
 
     }
@@ -465,7 +465,7 @@ namespace ConsoleApplication {
             while ((line = streamReader.ReadLine()) != null) {
               if (line_num == 0) {
                 column_names = line.Split(',');
-                for (int i=0; i<column_names.Count; i+=1) {
+                for (int i=0; i<column_names.Length; i+=1) {
                   column_names[i] = column_names[i].Trim();
                   if (column_names[i].Equals("oid", StringComparison.InvariantCultureIgnoreCase)) {
                     oid_column = i;
@@ -476,10 +476,10 @@ namespace ConsoleApplication {
                 string[] str_values = line.Split(',');
                 object[] parsed_vals = new object[str_values.Length];
                 for (int i=0; i<parsed_vals.Length; i+=1) {
-                  parsed_vals[i] = ParseToSimplest(str_values[i]);
+                  parsed_vals[i] = Program.ParseToSimplest(str_values[i]);
                 }
 
-                for (int i=0; i<Math.Min(column_names.Count, parsed_vals.Length); i+=1) {
+                for (int i=0; i<Math.Min(column_names.Length, parsed_vals.Length); i+=1) {
 
                 }
 
