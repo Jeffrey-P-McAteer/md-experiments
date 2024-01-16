@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 
 using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
+using Microsoft.CodeAnalysis.Scripting.Hosting;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -432,8 +434,14 @@ namespace ConsoleApplication {
       public string description;
       public string update_code;
 
+      private Script? compiled_script = null;
+
       public void Apply(SimStepData sim_step, TimeSpan duration_to_move) {
-        var result = CSharpScript.EvaluateAsync(this.update_code, globals: sim_step).Result;
+        if (this.compiled_script == null) {
+          this.compiled_script = CSharpScript.Create(this.update_code, globalsType: typeof(SimStepData));
+          this.compiled_script.Compile();
+        }
+        var result = this.compiled_script.RunAsync(globals: sim_step).Result;
       }
 
       public static List<Delta> all() {
